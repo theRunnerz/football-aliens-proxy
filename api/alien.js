@@ -17,7 +17,7 @@ export default async function handler(req, res) {
 
   try {
     const backendURL =
-      "https://football-aliens-ai-backend-e3gj-crgidy6bs-runnerzs-projects.vercel.app/api/alien";
+      "https://football-aliens-proxy-cidq0bs3d-runnerzs-projects.vercel.app/api/alien";
 
     const response = await fetch(backendURL, {
       method: "POST",
