@@ -1,38 +1,49 @@
 import fetch from "node-fetch";
 
 export default async function handler(req, res) {
-  // ✅ CORS HEADERS (this is the whole point)
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-
-  // Handle preflight
-  if (req.method === "OPTIONS") {
-    return res.status(200).end();
-  }
-
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
-  }
+  console.log("Request received:", req.method, req.body);
 
   try {
-    const backendURL =
-      "https://football-aliens-ai-backend-e3gj-nu09nunim-runnerzs-projects.vercel.app/api/alien";
+    if (req.method === "OPTIONS") {
+      return res.status(204).set({
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type",
+      }).end();
+    }
 
-    const response = await fetch(backendURL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(req.body)
+    if (req.method !== "POST") {
+      return res.status(405).json({ reply: "Method not allowed" });
+    }
+
+    const { message, alien } = req.body || {};
+    console.log("Parsed body:", message, alien);
+
+    if (!message || !alien) {
+      return res.status(400).json({ reply: "👽 Missing message or alien" });
+    }
+
+    if (!process.env.GEMINI_API_KEY) {
+      console.error("❌ GEMINI_API_KEY missing");
+      return res.status(500).json({ reply: "👽 AI core offline: API key missing" });
+    }
+
+    const { GoogleGenAI } = await import("@google/genai");
+    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+
+    const prompt = `Alien ${alien} responds to: "${message}"`;
+    console.log("Sending prompt:", prompt);
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3-pro-preview",
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
     });
 
-    const data = await response.json();
+    console.log("AI response:", response?.text);
 
-    return res.status(200).json(data);
+    return res.status(200).json({ reply: response?.text || "👽 Alien brain static…" });
   } catch (err) {
-    console.error("Proxy error:", err);
-    return res.status(500).json({
-      error: "Proxy failed",
-      details: err.message
-    });
+    console.error("❌ Serverless function error:", err);
+    return res.status(500).json({ reply: "👽 AI core malfunction" });
   }
 }
